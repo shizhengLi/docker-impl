@@ -10,13 +10,16 @@ docker-impl/
 │   └── mydocker/         # 主程序
 ├── pkg/                   # 核心包
 │   ├── cli/              # CLI命令实现
+│   ├── cluster/          # 集群管理
 │   ├── container/        # 容器管理
 │   ├── image/            # 镜像管理
+│   ├── network/          # 网络管理
+│   ├── performance/      # 性能优化
+│   ├── storage/          # 存储管理
 │   ├── store/            # 存储管理
 │   └── types/            # 数据类型定义
 ├── tests/                 # 测试
 │   └── integration/      # 集成测试
-├── DESIGN.md             # 设计文档
 ├── go.mod               # Go模块
 └── README.md            # 项目说明
 ```
@@ -43,6 +46,16 @@ docker-impl/
 - `mydocker system info` - 系统信息
 - `mydocker system prune` - 清理未使用的数据
 
+### 集群管理
+- `mydocker cluster init` - 初始化集群
+- `mydocker cluster join` - 加入现有集群
+- `mydocker cluster leave` - 离开集群
+- `mydocker cluster info` - 集群信息
+- `mydocker cluster status` - 集群状态
+- `mydocker node ls` - 列出集群节点
+- `mydocker task ls` - 列出集群任务
+- `mydocker service ls` - 列出集群服务
+
 ## 架构设计
 
 ### 核心模块
@@ -52,6 +65,8 @@ docker-impl/
 4. **容器管理模块** - 容器生命周期管理
 5. **存储模块** - 分层文件系统
 6. **网络模块** - 网络配置
+7. **性能优化模块** - 性能监控和优化
+8. **集群管理模块** - 多节点集群管理
 
 ### 隔离机制
 - **命名空间隔离** - PID、网络、挂载、UTS、IPC
@@ -62,8 +77,10 @@ docker-impl/
 
 - **语言**: Go 1.21+
 - **容器技术**: Linux namespaces, cgroups
-- **存储**: Union File System (模拟)
-- **网络**: 网桥模式
+- **存储**: Union File System, Overlay文件系统
+- **网络**: 网桥模式, DNS服务发现
+- **性能**: Prometheus监控, LRU缓存, 工作池
+- **集群**: RESTful API, 健康检查, 任务调度
 - **测试**: Go testing framework + testify
 
 ## 构建和运行
@@ -108,6 +125,13 @@ go test ./tests/integration/...
 
 # 删除容器
 ./mydocker container remove <container_id>
+
+# 集群管理
+./mydocker cluster init --advertise-addr 192.168.1.100
+./mydocker cluster join --advertise-addr 192.168.1.101 --join-token <token>
+./mydocker cluster status
+./mydocker node ls
+./mydocker task ls
 ```
 
 ## 设计原则
@@ -140,10 +164,10 @@ go test ./tests/integration/...
 - [x] 核心功能实现
 - [x] 单元测试
 - [x] 集成测试
-- [ ] 性能优化
-- [ ] 更多网络功能
-- [ ] 存储驱动优化
-- [ ] 集群支持
+- [x] 性能优化
+- [x] 更多网络功能
+- [x] 存储驱动优化
+- [x] 集群支持
 
 ## 贡献指南
 
