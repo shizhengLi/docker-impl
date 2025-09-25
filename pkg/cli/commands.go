@@ -47,14 +47,17 @@ func New() (*App, error) {
 		},
 	}
 
+	// Add cluster commands
+	app.addClusterCommands()
+
 	return app, nil
 }
 
-func (a *App) Run(args []string) error {
-	return a.cliApp.Run(args)
+func (app *App) Run(args []string) error {
+	return app.cliApp.Run(args)
 }
 
-func (a *App) createImageCommands() *cli.Command {
+func (app *App) createImageCommands() *cli.Command {
 	return &cli.Command{
 		Name:  "image",
 		Usage: "Manage images",
@@ -70,24 +73,24 @@ func (a *App) createImageCommands() *cli.Command {
 						Value: "latest",
 					},
 				},
-				Action: a.pullImage,
+				Action: app.pullImage,
 			},
 			{
 				Name:    "list",
 				Usage:   "List images",
 				Aliases: []string{"ls"},
-				Action:  a.listImages,
+				Action:  app.listImages,
 			},
 			{
 				Name:    "remove",
 				Usage:   "Remove an image",
 				Aliases: []string{"rm"},
-				Action:  a.removeImage,
+				Action:  app.removeImage,
 			},
 			{
 				Name:    "build",
 				Usage:   "Build an image from a Dockerfile",
-				Action:  a.buildImage,
+				Action:  app.buildImage,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "tag",
@@ -104,7 +107,7 @@ func (a *App) createImageCommands() *cli.Command {
 	}
 }
 
-func (a *App) createContainerCommands() *cli.Command {
+func (app *App) createContainerCommands() *cli.Command {
 	return &cli.Command{
 		Name:  "container",
 		Usage: "Manage containers",
@@ -149,7 +152,7 @@ func (a *App) createContainerCommands() *cli.Command {
 						Aliases: []string{"d"},
 					},
 				},
-				Action: a.runContainer,
+				Action: app.runContainer,
 			},
 			{
 				Name:    "list",
@@ -162,12 +165,12 @@ func (a *App) createContainerCommands() *cli.Command {
 						Aliases: []string{"a"},
 					},
 				},
-				Action: a.listContainers,
+				Action: app.listContainers,
 			},
 			{
 				Name:    "start",
 				Usage:   "Start one or more stopped containers",
-				Action:  a.startContainer,
+				Action:  app.startContainer,
 			},
 			{
 				Name:    "stop",
@@ -180,7 +183,7 @@ func (a *App) createContainerCommands() *cli.Command {
 						Aliases: []string{"t"},
 					},
 				},
-				Action: a.stopContainer,
+				Action: app.stopContainer,
 			},
 			{
 				Name:    "remove",
@@ -193,23 +196,23 @@ func (a *App) createContainerCommands() *cli.Command {
 						Aliases: []string{"f"},
 					},
 				},
-				Action: a.removeContainer,
+				Action: app.removeContainer,
 			},
 			{
 				Name:    "logs",
 				Usage:   "Fetch the logs of a container",
-				Action:  a.containerLogs,
+				Action:  app.containerLogs,
 			},
 			{
 				Name:    "inspect",
 				Usage:   "Return low-level information on Docker objects",
-				Action:  a.inspectContainer,
+				Action:  app.inspectContainer,
 			},
 		},
 	}
 }
 
-func (a *App) createSystemCommands() *cli.Command {
+func (app *App) createSystemCommands() *cli.Command {
 	return &cli.Command{
 		Name:  "system",
 		Usage: "Manage mydocker system",
@@ -217,279 +220,69 @@ func (a *App) createSystemCommands() *cli.Command {
 			{
 				Name:    "info",
 				Usage:   "Display system-wide information",
-				Action:  a.systemInfo,
+				Action:  app.systemInfo,
 			},
 			{
 				Name:    "prune",
 				Usage:   "Remove unused data",
-				Action:  a.systemPrune,
+				Action:  app.systemPrune,
 			},
 		},
 	}
 }
 
-func (a *App) pullImage(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify an image name")
+func (app *App) addClusterCommands() {
+	// Add cluster commands dynamically
+	clusterCmd := &cli.Command{
+		Name:  "cluster",
+		Usage: "Manage mydocker cluster",
+		Subcommands: []*cli.Command{
+			{
+				Name:    "init",
+				Usage:   "Initialize a new cluster",
+				Action:  app.initCluster,
+			},
+			{
+				Name:    "info",
+				Usage:   "Show cluster information",
+				Action:  app.clusterInfo,
+			},
+			{
+				Name:    "status",
+				Usage:   "Show cluster status",
+				Action:  app.clusterStatus,
+			},
+		},
 	}
 
-	imageName := c.Args().First()
-	tag := c.String("tag")
-
-	logrus.Infof("Pulling image %s:%s", imageName, tag)
-	image, err := a.imageMgr.PullImage(imageName, tag)
-	if err != nil {
-		return fmt.Errorf("failed to pull image: %v", err)
+	// Add node command group
+	nodeCmd := &cli.Command{
+		Name:  "node",
+		Usage: "Manage cluster nodes",
+		Subcommands: []*cli.Command{
+			{
+				Name:    "ls",
+				Usage:   "List nodes in the cluster",
+				Aliases: []string{"list"},
+				Action:  app.listNodes,
+			},
+		},
 	}
 
-	fmt.Printf("Successfully pulled image %s:%s\n", imageName, tag)
-	fmt.Printf("Image ID: %s\n", image.ID)
-	return nil
-}
-
-func (a *App) listImages(c *cli.Context) error {
-	images, err := a.imageMgr.ListImages()
-	if err != nil {
-		return fmt.Errorf("failed to list images: %v", err)
+	// Add task command group
+	taskCmd := &cli.Command{
+		Name:  "task",
+		Usage: "Manage cluster tasks",
+		Subcommands: []*cli.Command{
+			{
+				Name:    "ls",
+				Usage:   "List tasks",
+				Aliases: []string{"list"},
+				Action:  app.listTasks,
+			},
+		},
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tSIZE")
-
-	for _, img := range images {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n",
-			img.Name,
-			img.Tag,
-			img.ID[:12],
-			img.CreatedAt.Format("2006-01-02 15:04:05"),
-			img.Size)
-	}
-
-	w.Flush()
-	return nil
-}
-
-func (a *App) removeImage(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify an image ID or name")
-	}
-
-	imageID := c.Args().First()
-
-	if err := a.imageMgr.RemoveImage(imageID); err != nil {
-		return fmt.Errorf("failed to remove image: %v", err)
-	}
-
-	fmt.Printf("Successfully removed image %s\n", imageID)
-	return nil
-}
-
-func (a *App) buildImage(c *cli.Context) error {
-	contextDir := "."
-	if c.Args().Len() > 0 {
-		contextDir = c.Args().First()
-	}
-
-	options := types.ImageBuildOptions{
-		ContextDir: contextDir,
-		Dockerfile: c.String("file"),
-	}
-
-	if tag := c.String("tag"); tag != "" {
-		options.Tags = []string{tag}
-	}
-
-	logrus.Infof("Building image in context %s", contextDir)
-	image, err := a.imageMgr.BuildImage(options)
-	if err != nil {
-		return fmt.Errorf("failed to build image: %v", err)
-	}
-
-	fmt.Printf("Successfully built image %s\n", image.ID)
-	return nil
-}
-
-func (a *App) runContainer(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify an image name")
-	}
-
-	imageName := c.Args().First()
-	cmd := c.Args().Tail()
-
-	config := types.ContainerConfig{
-		Image:        imageName,
-		Env:          []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
-		Cmd:          cmd,
-		WorkingDir:   "/",
-		AttachStdin:  c.Bool("interactive"),
-		AttachStdout: true,
-		AttachStderr: true,
-		Tty:          c.Bool("tty"),
-		OpenStdin:    c.Bool("interactive"),
-	}
-
-	hostConfig := types.HostConfig{
-		NetworkMode: c.String("network"),
-	}
-
-	options := types.ContainerCreateOptions{
-		Name:       c.String("name"),
-		Config:     config,
-		HostConfig: hostConfig,
-	}
-
-	logrus.Infof("Creating container with image %s", imageName)
-	container, err := a.containerMgr.CreateContainer(options)
-	if err != nil {
-		return fmt.Errorf("failed to create container: %v", err)
-	}
-
-	if err := a.containerMgr.StartContainer(container.ID); err != nil {
-		return fmt.Errorf("failed to start container: %v", err)
-	}
-
-	fmt.Printf("Container started successfully: %s\n", container.ID[:12])
-	return nil
-}
-
-func (a *App) listContainers(c *cli.Context) error {
-	options := types.ContainerListOptions{
-		All: c.Bool("all"),
-	}
-
-	containers, err := a.containerMgr.ListContainers(options)
-	if err != nil {
-		return fmt.Errorf("failed to list containers: %v", err)
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "CONTAINER ID\tIMAGE\tCOMMAND\tCREATED\tSTATUS\tPORTS\tNAMES")
-
-	for _, ctr := range containers {
-		cmdStr := ""
-		if len(ctr.Config.Cmd) > 0 {
-			cmdStr = ctr.Config.Cmd[0]
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			ctr.ID[:12],
-			ctr.Image,
-			cmdStr,
-			ctr.CreatedAt.Format("2006-01-02 15:04:05"),
-			ctr.Status,
-			"",
-			ctr.Name)
-	}
-
-	w.Flush()
-	return nil
-}
-
-func (a *App) startContainer(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify a container ID")
-	}
-
-	containerID := c.Args().First()
-
-	if err := a.containerMgr.StartContainer(containerID); err != nil {
-		return fmt.Errorf("failed to start container: %v", err)
-	}
-
-	fmt.Printf("Container %s started successfully\n", containerID)
-	return nil
-}
-
-func (a *App) stopContainer(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify a container ID")
-	}
-
-	containerID := c.Args().First()
-	timeout := c.Int("time")
-
-	if err := a.containerMgr.StopContainer(containerID, timeout); err != nil {
-		return fmt.Errorf("failed to stop container: %v", err)
-	}
-
-	fmt.Printf("Container %s stopped successfully\n", containerID)
-	return nil
-}
-
-func (a *App) removeContainer(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify a container ID")
-	}
-
-	containerID := c.Args().First()
-	options := types.ContainerRemoveOptions{
-		Force: c.Bool("force"),
-	}
-
-	if err := a.containerMgr.RemoveContainer(containerID, options); err != nil {
-		return fmt.Errorf("failed to remove container: %v", err)
-	}
-
-	fmt.Printf("Container %s removed successfully\n", containerID)
-	return nil
-}
-
-func (a *App) containerLogs(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify a container ID")
-	}
-
-	containerID := c.Args().First()
-
-	logs, err := a.containerMgr.GetContainerLogs(containerID)
-	if err != nil {
-		return fmt.Errorf("failed to get container logs: %v", err)
-	}
-
-	fmt.Print(logs)
-	return nil
-}
-
-func (a *App) inspectContainer(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return fmt.Errorf("please specify a container ID")
-	}
-
-	containerID := c.Args().First()
-
-	container, err := a.containerMgr.GetContainer(containerID)
-	if err != nil {
-		return fmt.Errorf("failed to get container: %v", err)
-	}
-
-	data, err := json.MarshalIndent(container, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal container data: %v", err)
-	}
-
-	fmt.Println(string(data))
-	return nil
-}
-
-func (a *App) systemInfo(c *cli.Context) error {
-	info := map[string]interface{}{
-		"version":      "1.0.0",
-		"data_dir":     a.store.GetDataDir(),
-		"storage_driver": "overlay2",
-		"kernel_version": "linux",
-	}
-
-	data, err := json.MarshalIndent(info, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal system info: %v", err)
-	}
-
-	fmt.Println(string(data))
-	return nil
-}
-
-func (a *App) systemPrune(c *cli.Context) error {
-	fmt.Println("System prune not implemented yet")
-	return nil
+	// Add commands to CLI app
+	app.cliApp.Commands = append(app.cliApp.Commands, clusterCmd, nodeCmd, taskCmd)
 }
